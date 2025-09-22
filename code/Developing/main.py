@@ -21,7 +21,32 @@ def _clamp_pct(value: float) -> float:
     return -100.0 if value < -100.0 else 100.0 if value > 100.0 else value
 
 
+class _NullLCD:
+    present = False
+
+    def print_line(self, *_args, **_kwargs) -> None:
+        pass
+
+    def close(self) -> None:  # pragma: no cover - nothing to release
+        pass
+
+
+class _NullMotion:
+    present = False
+
+    def drive(self, *_args, **_kwargs) -> None:
+        pass
+
+    def stop(self) -> None:
+        pass
+
+    def close(self) -> None:  # pragma: no cover
+        pass
+
+
 class _TB6612Adapter:
+    present = True
+
     def __init__(self, controller):
         self.controller = controller
 
@@ -39,6 +64,8 @@ class _TB6612Adapter:
 
 
 class _DRV8830Adapter:
+    present = True
+
     def __init__(self, left_motor, right_motor):
         self.left = left_motor
         self.right = right_motor
@@ -68,18 +95,50 @@ class Robot:
         drv8830_right: int,
     ) -> None:
         self.bus = SMBus(bus_id)
-        self.lcd = GroveRGBLCD(i2c=self.bus)
-        self.sonar = GroveUltrasonicRanger(sonar_pin)
 
+        # LCD is optional; fall back silently if missing
+        try:
+            self.lcd = GroveRGBLCD(i2c=self.bus)
+            self.lcd_present = True
+        except OSError as exc:
+            print(f"[warn] LCD init failed ({exc}); continuing without LCD", file=sys.stderr)
+            self.lcd = _NullLCD()
+            self.lcd_present = False
+
+        # Ultrasonic ranger optional as well
+        try:
+            self.sonar = GroveUltrasonicRanger(sonar_pin)
+            self.sonar_present = True
+        except Exception as exc:
+            print(f"[warn] Ultrasonic init failed ({exc}); distance readings disabled", file=sys.stderr)
+            self.sonar = None
+            self.sonar_present = False
+
+        # Motor driver selection with graceful fallback
         if driver == "tb6612":
-            controller = get_controller(bus=bus_id, address=tb6612_addr, i2c=self.bus, verbose=False)
-            self.motion = _TB6612Adapter(controller)
+            try:
+                controller = get_controller(bus=bus_id, address=tb6612_addr, i2c=self.bus, verbose=False)
+                self.motion = _TB6612Adapter(controller)
+            except OSError as exc:
+                print(f"[warn] TB6612 controller unavailable ({exc}); motors disabled", file=sys.stderr)
+                self.motion = _NullMotion()
         elif driver == "drv8830":
-            left = get_driver(bus=bus_id, address=drv8830_left, i2c=self.bus)
-            right = get_driver(bus=bus_id, address=drv8830_right, i2c=self.bus)
-            self.motion = _DRV8830Adapter(left, right)
+            left = right = None
+            try:
+                left = get_driver(bus=bus_id, address=drv8830_left, i2c=self.bus)
+                right = get_driver(bus=bus_id, address=drv8830_right, i2c=self.bus)
+                self.motion = _DRV8830Adapter(left, right)
+            except OSError as exc:
+                print(f"[warn] DRV8830 drivers unavailable ({exc}); motors disabled", file=sys.stderr)
+                if left is not None:
+                    left.close()
+                if right is not None:
+                    right.close()
+                self.motion = _NullMotion()
         else:
             raise ValueError(f"Unsupported driver '{driver}'")
+
+        self.motors_present = getattr(self.motion, "present", False)
 
     # --------------- motion helpers ---------------
     def drive(self, left_pct: float, right_pct: float) -> None:
@@ -120,10 +179,12 @@ class Robot:
 
     # --------------- sensors / UI ---------------
     def read_distance(self) -> Optional[float]:
+        if not self.sonar_present or self.sonar is None:
+            return None
         try:
             return float(self.sonar.get_distance())
         except Exception as exc:  # pragma: no cover - hardware error path
-            print(f"Ultrasonic read failed: {exc}", file=sys.stderr)
+            print(f"[warn] Ultrasonic read failed: {exc}", file=sys.stderr)
             return None
 
     def display_distance(self, distance: Optional[float], status: str) -> None:
@@ -139,7 +200,8 @@ class Robot:
             self.stop()
         finally:
             try:
-                self.lcd.close()
+                if self.lcd:
+                    self.lcd.close()
             finally:
                 try:
                     self.motion.close()
@@ -157,10 +219,16 @@ def _run_demo(robot: Robot, speed: float, duration: float) -> None:
         ("Turn Right", lambda: robot.turn_right(speed, duration)),
     ]
 
+    if not robot.motors_present:
+        print("[warn] Motors not available; motion steps will be skipped", file=sys.stderr)
+
     for label, action in steps:
         distance = robot.read_distance()
         robot.display_distance(distance, label)
-        action()
+        if robot.motors_present:
+            action()
+        else:
+            time.sleep(duration)
         time.sleep(0.5)
 
 
