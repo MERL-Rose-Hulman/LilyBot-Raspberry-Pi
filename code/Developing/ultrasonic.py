@@ -37,7 +37,10 @@ import sys
 import time
 from typing import Optional
 
-from grove.gpio import GPIO
+try:
+    from grove.gpio import GPIO
+except ImportError:  # pragma: no cover - allow import on dev machines
+    GPIO = None  # type: ignore[assignment]
 
 usleep = lambda x: time.sleep(x / 1000000.0)
 
@@ -47,6 +50,10 @@ _TIMEOUT2 = 10000
 class GroveUltrasonicRanger(object):
     def __init__(self, pin: Optional[int] = None, *, gpio: Optional[GPIO] = None):
         if gpio is None:
+            if GPIO is None:
+                raise RuntimeError(
+                    "grove.gpio module not available. Install grove libraries on Raspberry Pi."
+                )
             if pin is None:
                 raise ValueError("pin must be provided when gpio is None")
             self.dio = GPIO(pin)

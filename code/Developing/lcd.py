@@ -18,7 +18,10 @@ from typing import Optional
 try:
     from smbus2 import SMBus
 except ImportError:
-    from smbus import SMBus
+    try:
+        from smbus import SMBus
+    except ImportError:
+        SMBus = None  # type: ignore[assignment]
 
 
 # --------------------- LCD (text) constants ---------------------
@@ -132,6 +135,10 @@ class GroveRGBLCD:
         i2c=<SMBus>       -> 使用外部初始化好的 I2C 总线对象（不自动关闭）
         """
         if i2c is None:
+            if SMBus is None:
+                raise RuntimeError(
+                    "SMBus library not available. Install 'smbus2' or run on Raspberry Pi."
+                )
             self.bus = SMBus(bus)
             self._owns_bus = True
         else:

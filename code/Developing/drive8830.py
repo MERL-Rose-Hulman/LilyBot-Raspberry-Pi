@@ -9,7 +9,10 @@ from typing import Optional
 try:
     from smbus2 import SMBus
 except ImportError:  # pragma: no cover - fallback when smbus2 is unavailable
-    from smbus import SMBus  # type: ignore[assignment]
+    try:
+        from smbus import SMBus  # type: ignore[assignment]
+    except ImportError:  # pragma: no cover - development environments without smbus
+        SMBus = None  # type: ignore[assignment]
 
 CONTROL_REG = 0x00
 FAULT_REG = 0x01
@@ -30,6 +33,10 @@ class DRV8830:
     """Simple wrapper around the DRV8830 single-channel motor driver."""
 
     def __init__(self, address: int = DEFAULT_ADDRESS, *, bus: int = 1, i2c: Optional[SMBus] = None):
+        if SMBus is None and i2c is None:
+            raise RuntimeError(
+                "SMBus library not available. Install 'smbus2' or run on Raspberry Pi."
+            )
         self.address = address
         if i2c is None:
             self.bus = SMBus(bus)
