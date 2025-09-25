@@ -19,10 +19,10 @@ except ImportError:  # pragma: no cover - fallback when smbus2 is missing
     except ImportError:  # pragma: no cover - developer machines without SMBus
         SMBus = None  # type: ignore[assignment]
 
-from drive6612 import get_controller
-from drive8830 import get_driver
-from lcd import GroveRGBLCD
-from ultrasonic import GroveUltrasonicRanger
+from .drivers.drive6612 import get_controller
+from .drivers.drive8830 import get_driver
+from .peripherals.lcd import GroveRGBLCD
+from .peripherals.ultrasonic import GroveUltrasonicRanger
 
 
 DEFAULT_SPEED = 60.0

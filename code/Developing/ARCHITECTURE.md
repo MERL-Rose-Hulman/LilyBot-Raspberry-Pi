@@ -8,18 +8,20 @@ new sensors or actuators.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Student / Teaching Entry Points: main.py, lilybot/LilyBotKit        │
+│  Student / Teaching Entry Points: main.py, lilybot/kit.py           │
 └───────────────▲─────────────────────────────────────────────────────┘
                 │ (Friendly API surface: kit.motors.forward(), etc.)
 ┌───────────────┴─────────────────────────────────────────────────────┐
-│  Core Hardware Abstractions: robot.py                               │
+│  Core Hardware Abstractions: lilybot/robot.py                       │
 │   • Robot manages the shared I2C bus                                │
 │   • MotionSystem / DisplaySystem / DistanceSensor                   │
 │   • ActionRunner executes scripted motion sequences                  │
 └───────────────▲─────────────────────────────────────────────────────┘
                 │ (Reuse shared defaults and resilience strategies)
 ┌───────────────┴─────────────────────────────────────────────────────┐
-│  Device Adaptors: drive8830.py, lcd.py, ultrasonic.py, …             │
+│  Device Adaptors: lilybot/drivers/drive8830.py,                     │
+│                   lilybot/peripherals/lcd.py,                       │
+│                   lilybot/peripherals/ultrasonic.py, …              │
 │   • Direct interaction with the hardware libraries                   │
 │   • Graceful fallbacks when smbus / grove packages are missing       │
 └─────────────────────────────────────────────────────────────────────┘
@@ -48,10 +50,11 @@ example below assumes a temperature sensor):
      classroom Raspberry Pi environment.
 
 2. **Wrap the low-level driver**
-   - Create a dedicated module such as `code/Developing/devices/temperature.py`
+  - Create a dedicated module such as
+    `code/Developing/lilybot/peripherals/temperature.py`
      with a `TemperatureSensor` class that handles setup, reads data, and
      releases resources.
-   - Mirror the patterns in `drive8830.py` and friends so missing dependencies
+   - Mirror the patterns in `lilybot/drivers/drive8830.py` and friends so missing dependencies
      raise an informative error only when the driver is actually used.
 
 3. **Optionally surface it through `Robot`**

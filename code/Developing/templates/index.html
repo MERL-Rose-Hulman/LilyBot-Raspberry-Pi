@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>LilyBot Web Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        margin: 0;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        background: #111827;
+        color: #f9fafb;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+      }
+      h1 {
+        margin: 0;
+        font-size: 2rem;
+        letter-spacing: 0.02em;
+      }
+      p.lead {
+        margin: 0;
+        font-size: 1rem;
+        color: rgba(226, 232, 240, 0.85);
+      }
+      section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .status-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.75rem;
+      }
+      .status-card {
+        background: rgba(30, 41, 59, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 0.75rem;
+        padding: 0.8rem 1rem;
+      }
+      .status-card strong {
+        display: block;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(148, 163, 184, 0.9);
+        margin-bottom: 0.35rem;
+      }
+      .status-indicator {
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+      .inputs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        font-size: 0.9rem;
+        color: rgba(226, 232, 240, 0.9);
+      }
+      input[type="number"] {
+        padding: 0.5rem 0.6rem;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.8);
+        color: inherit;
+        font-size: 1rem;
+      }
+      .controller-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(120px, 1fr));
+        gap: 0.75rem;
+        justify-items: center;
+      }
+      button {
+        padding: 0.85rem 1rem;
+        border-radius: 0.75rem;
+        border: none;
+        font-size: 1rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: #f8fafc;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        width: 100%;
+      }
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 20px rgba(59, 130, 246, 0.25);
+      }
+      button:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+      button.secondary {
+        background: linear-gradient(135deg, #475569, #334155);
+      }
+      button.destructive {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+      }
+      #log {
+        min-height: 120px;
+        background: rgba(15, 23, 42, 0.9);
+        border-radius: 0.75rem;
+        padding: 1rem;
+        font-family: "SFMono-Regular", ui-monospace, "Menlo", "Consolas", monospace;
+        font-size: 0.85rem;
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        overflow-y: auto;
+        white-space: pre-line;
+      }
+      .distance {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+      .distance-value {
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>LilyBot Web Controller</h1>
+        <p class="lead">
+          Connect through the classroom Wi-Fi and command the robot using the buttons below.
+        </p>
+      </header>
+
+      <section>
+        <h2>Hardware Status</h2>
+        <div class="status-grid">
+          <div class="status-card"><strong>Motors</strong><span id="status-motors" class="status-indicator">-</span></div>
+          <div class="status-card"><strong>Display</strong><span id="status-display" class="status-indicator">-</span></div>
+          <div class="status-card"><strong>Distance</strong><span id="status-distance" class="status-indicator">-</span></div>
+          <div class="status-card"><strong>Auto Demo</strong><span id="status-demo" class="status-indicator">-</span></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Movement Settings</h2>
+        <div class="inputs">
+          <label>Speed (%)
+            <input id="input-speed" type="number" min="0" max="100" step="1" value="60" />
+          </label>
+          <label>Duration (s)
+            <input id="input-duration" type="number" min="0" step="0.1" value="1.2" />
+          </label>
+          <label>Inner scale (turns)
+            <input id="input-inner" type="number" min="0" max="1" step="0.05" value="0.4" />
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Controls</h2>
+        <div class="controller-grid" id="controls"></div>
+        <button id="btn-stop" class="destructive">Emergency Stop</button>
+      </section>
+
+      <section>
+        <h2>Obstacle Avoidance Demo</h2>
+        <div class="distance">
+          <button id="btn-demo-start">Start Demo</button>
+          <button id="btn-demo-stop" class="secondary">Stop Demo</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Distance Sensor</h2>
+        <div class="distance">
+          <button id="btn-distance" class="secondary">Read Distance</button>
+          <span id="distance-output" class="distance-value">- cm</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Event Log</h2>
+        <div id="log">Waiting for commands...</div>
+      </section>
+    </main>
+
+    <script>
+      const actionLabels = {{ action_labels|tojson }};
+      const controlsEl = document.getElementById("controls");
+      const logEl = document.getElementById("log");
+      const statusEls = {
+        motors: document.getElementById("status-motors"),
+        display: document.getElementById("status-display"),
+        distance: document.getElementById("status-distance"),
+        demo: document.getElementById("status-demo"),
+      };
+      const speedEl = document.getElementById("input-speed");
+      const durationEl = document.getElementById("input-duration");
+      const innerEl = document.getElementById("input-inner");
+      const stopBtn = document.getElementById("btn-stop");
+      const distanceBtn = document.getElementById("btn-distance");
+      const distanceOutput = document.getElementById("distance-output");
+      const demoStartBtn = document.getElementById("btn-demo-start");
+      const demoStopBtn = document.getElementById("btn-demo-stop");
+
+      const nonStopActions = Object.keys(actionLabels).filter((name) => name !== "stop");
+      const latestStatus = { demo_running: false };
+
+      function appendLog(message) {
+        const now = new Date();
+        const timestamp = now.toLocaleTimeString();
+        const content = `[${timestamp}] ${message}`;
+        logEl.textContent = `${content}\n${logEl.textContent}`.trim();
+      }
+
+      function setStatus(id, state, labels = {}) {
+        const el = statusEls[id];
+        if (!el) return;
+        if (typeof state === "boolean") {
+          const trueLabel = labels.trueLabel || "Online";
+          const falseLabel = labels.falseLabel || "Unavailable";
+          const trueColor = labels.trueColor || "#22c55e";
+          const falseColor = labels.falseColor || "#f97316";
+          el.textContent = state ? trueLabel : falseLabel;
+          el.style.color = state ? trueColor : falseColor;
+        } else {
+          el.textContent = state;
+          el.style.color = labels.stringColor || "#e2e8f0";
+        }
+      }
+
+      async function refreshStatus() {
+        try {
+          const response = await fetch("/api/status");
+          if (!response.ok) throw new Error(`Status ${response.status}`);
+          const data = await response.json();
+          setStatus("motors", data.motors);
+          setStatus("display", data.display);
+          setStatus("distance", data.distance);
+          setStatus("demo", Boolean(data.demo_running), {
+            trueLabel: "Running",
+            falseLabel: "Stopped",
+            trueColor: "#22c55e",
+            falseColor: "#e2e8f0",
+          });
+          latestStatus.demo_running = Boolean(data.demo_running);
+          demoStartBtn.disabled = latestStatus.demo_running;
+          demoStopBtn.disabled = !latestStatus.demo_running;
+          if (typeof data.defaults?.speed === "number") {
+            speedEl.value = data.defaults.speed;
+          }
+          if (typeof data.defaults?.duration === "number") {
+            durationEl.value = data.defaults.duration;
+          }
+          if (typeof data.defaults?.inner_scale === "number") {
+            innerEl.value = data.defaults.inner_scale;
+          }
+          appendLog("Status refreshed.");
+        } catch (err) {
+          appendLog(`Failed to refresh status: ${err.message}`);
+        }
+      }
+
+      async function runAction(action) {
+        if (latestStatus.demo_running) {
+          appendLog("Obstacle avoidance demo is running. Stop it before sending direct commands.");
+          return;
+        }
+
+        const payload = {
+          action,
+          speed: Number(speedEl.value),
+          duration: Number(durationEl.value),
+          inner_scale: Number(innerEl.value),
+        };
+        try {
+          const response = await fetch("/api/move", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || `HTTP ${response.status}`);
+          }
+          appendLog(`${actionLabels[action]} command sent.`);
+        } catch (err) {
+          appendLog(`Action failed: ${err.message}`);
+        }
+      }
+
+      async function emergencyStop() {
+        try {
+          const response = await fetch("/api/stop", { method: "POST" });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || `HTTP ${response.status}`);
+          }
+          appendLog("Motors stopped.");
+          if (data.demo_stopped) {
+            appendLog("Obstacle avoidance demo halted.");
+          }
+          latestStatus.demo_running = false;
+          demoStartBtn.disabled = false;
+          demoStopBtn.disabled = true;
+        } catch (err) {
+          appendLog(`Stop failed: ${err.message}`);
+        }
+      }
+
+      async function readDistance() {
+        try {
+          const response = await fetch("/api/distance");
+          const data = await response.json();
+          if (!response.ok || !data.available) {
+            throw new Error("Distance sensor unavailable");
+          }
+          distanceOutput.textContent = `${data.distance_cm} cm`;
+          appendLog(`Distance: ${data.distance_cm} cm.`);
+        } catch (err) {
+          distanceOutput.textContent = "- cm";
+          appendLog(`Distance read failed: ${err.message}`);
+        }
+      }
+
+      async function startDemo() {
+        try {
+          const response = await fetch("/api/demo/avoidance", { method: "POST" });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || `HTTP ${response.status}`);
+          }
+          appendLog("Obstacle avoidance demo started.");
+          latestStatus.demo_running = true;
+          demoStartBtn.disabled = true;
+          demoStopBtn.disabled = false;
+          refreshStatus();
+        } catch (err) {
+          appendLog(`Unable to start demo: ${err.message}`);
+        }
+      }
+
+      async function stopDemo() {
+        try {
+          const response = await fetch("/api/demo/avoidance/stop", { method: "POST" });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || `HTTP ${response.status}`);
+          }
+          if (data.ok) {
+            appendLog("Obstacle avoidance demo stopped.");
+          } else {
+            appendLog(data.message || "Demo was not running.");
+          }
+          latestStatus.demo_running = false;
+          demoStartBtn.disabled = false;
+          demoStopBtn.disabled = true;
+          refreshStatus();
+        } catch (err) {
+          appendLog(`Unable to stop demo: ${err.message}`);
+        }
+      }
+
+      // Build control buttons
+      nonStopActions.forEach((action) => {
+        const button = document.createElement("button");
+        button.textContent = actionLabels[action];
+        button.type = "button";
+        button.addEventListener("click", () => runAction(action));
+        controlsEl.appendChild(button);
+      });
+
+      stopBtn.addEventListener("click", emergencyStop);
+      distanceBtn.addEventListener("click", readDistance);
+      demoStartBtn.addEventListener("click", startDemo);
+      demoStopBtn.addEventListener("click", stopDemo);
+
+      refreshStatus();
+    </script>
+  </body>
+</html>

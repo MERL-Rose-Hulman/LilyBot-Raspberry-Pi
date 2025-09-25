@@ -23,7 +23,7 @@ DEFAULTS = KitDefaults(speed=60, duration=1.2, inner_scale=0.4, pause=0.5)
 
 def show_header(kit: LilyBotKit) -> None:
     """Display a welcome banner on the LCD (or console fallback)."""
-    print("=== LilyBot 入门示例 ===")
+    print("=== LilyBot Intro Demo ===")
     if kit.display.available:
         kit.display.set_lines("Hello LilyBot!", "Let's explore")
         sleep(1.5)
@@ -38,7 +38,7 @@ def check_distance(kit: LilyBotKit, note: str) -> Optional[float]:
     if distance is None:
         print(f"[{note}] Distance unavailable (sensor missing or invalid reading).")
     else:
-        print(f"[{note}] 距离 = {distance:.1f} cm")
+        print(f"[{note}] Distance = {distance:.1f} cm")
     return distance
 
 
@@ -101,9 +101,9 @@ def main() -> None:
     ) as kit:
         show_header(kit)
 
-        check_distance(kit, "起始距离")
+        check_distance(kit, "Start Distance")
         demo_motions(kit)
-        check_distance(kit, "动作后距离")
+        check_distance(kit, "End Distance")
 
         demo_action_sequence(kit)
 

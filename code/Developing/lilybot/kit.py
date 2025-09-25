@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-from robot import (
+from .robot import (
     DEFAULT_DURATION,
     DEFAULT_INNER_SCALE,
     DEFAULT_PAUSE,

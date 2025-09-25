@@ -4,7 +4,7 @@ The `code/Developing/lilybot/` package exposes a high-level API designed for
 students who are new to robotics programming. The central entry point is
 `LilyBotKit`, which automatically initialises the motors, LCD screen and
 ultrasonic sensor. Internally it reuses the lower-level implementations in
-`robot.py`, so existing behaviour remains intact while still leaving room for
+`lilybot/robot.py`, so existing behaviour remains intact while still leaving room for
 future hardware extensions.
 
 ```python
@@ -60,7 +60,8 @@ kit.close()
    rewriting the sequence.
 
 > **Note**: On machines without hardware libraries installed, the scripts in
-> `drive8830.py`, `lcd.py`, and `ultrasonic.py` will raise friendly warnings
+> `lilybot/drivers/drive8830.py`, `lilybot/peripherals/lcd.py`, and
+> `lilybot/peripherals/ultrasonic.py` will raise friendly warnings
 > only when the code attempts to talk to the device, so features such as
 > `--list-actions` remain usable in software-only environments.
 
