@@ -15,8 +15,8 @@ from lilybot import KitDefaults, LilyBotKit
 DRIVER = "drv8830"          # 也可改为 "tb6612"
 I2C_BUS = 1
 SONAR_PIN = 5               # Grove 超声波模块插入的 GPIO 引脚（例：D5 → 5）
-DRV8830_LEFT = 0x60         # 左轮驱动板 I2C 地址
-DRV8830_RIGHT = 0x65        # 右轮驱动板 I2C 地址
+DRV8830_LEFT = 0x65         # 左轮驱动板 I2C 地址
+DRV8830_RIGHT = 0x60        # 右轮驱动板 I2C 地址
 TB6612_ADDR = 0x14          # TB6612 驱动板地址（当 DRIVER="tb6612" 时生效）
 DEFAULTS = KitDefaults(speed=60, duration=1.2, inner_scale=0.4, pause=0.5)
 
