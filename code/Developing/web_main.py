@@ -18,8 +18,8 @@ from lilybot import KitDefaults, LilyBotKit
 DRIVER = "drv8830"          # Set to "tb6612" if you use that motor driver
 I2C_BUS = 1
 SONAR_PIN = 5               # GPIO pin (BCM numbering) for the ultrasonic ranger
-DRV8830_LEFT = 0x60
-DRV8830_RIGHT = 0x65
+DRV8830_LEFT = 0x65
+DRV8830_RIGHT = 0x60
 TB6612_ADDR = 0x14
 DEFAULTS = KitDefaults(speed=60, duration=1.2, inner_scale=0.4, pause=0.5)
 
