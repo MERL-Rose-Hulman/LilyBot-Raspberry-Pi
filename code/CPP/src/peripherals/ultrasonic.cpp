@@ -8,8 +8,14 @@ namespace lilybot {
 namespace {
 using clock = std::chrono::steady_clock;
 
+constexpr std::chrono::microseconds kLoopSleep{5};
+
 void sleep_us(unsigned microseconds) {
     std::this_thread::sleep_for(std::chrono::microseconds(microseconds));
+}
+
+inline void tiny_pause() {
+    std::this_thread::sleep_for(kLoopSleep);
 }
 
 }  // namespace
@@ -39,14 +45,18 @@ std::optional<float> UltrasonicSensor::perform_read() {
     dio_.write(true);
     sleep_us(10);
     dio_.write(false);
+    // Allow sensor hardware settle before switching to input mode.
+    sleep_us(200);
 
     dio_.set_direction(GpioLine::Direction::In);
+    tiny_pause();
 
     const auto start_wait = clock::now();
     while (!dio_.read()) {
         if (clock::now() - start_wait > options_.timeout_wait_high) {
             return std::nullopt;
         }
+        tiny_pause();
     }
 
     const auto start_pulse = clock::now();
@@ -54,6 +64,7 @@ std::optional<float> UltrasonicSensor::perform_read() {
         if (clock::now() - start_pulse > options_.timeout_wait_low) {
             return std::nullopt;
         }
+        tiny_pause();
     }
     const auto end_pulse = clock::now();
 
