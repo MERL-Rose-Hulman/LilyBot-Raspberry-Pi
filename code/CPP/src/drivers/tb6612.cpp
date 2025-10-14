@@ -1,4 +1,4 @@
-#include "lilybot/tb6612.hpp"
+#include "lilybot/drivers/tb6612.hpp"
 
 #include <algorithm>
 #include <array>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lilybot/robot.hpp"
+#include "lilybot/core/robot.hpp"
 
 #include <memory>
 #include <optional>

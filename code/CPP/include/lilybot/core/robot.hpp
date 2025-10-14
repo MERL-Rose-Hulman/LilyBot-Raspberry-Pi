@@ -1,10 +1,10 @@
 #pragma once
 
-#include "lilybot/drv8830.hpp"
-#include "lilybot/i2c_bus.hpp"
-#include "lilybot/lcd.hpp"
-#include "lilybot/tb6612.hpp"
-#include "lilybot/ultrasonic.hpp"
+#include "lilybot/drivers/drv8830.hpp"
+#include "lilybot/hal/i2c_bus.hpp"
+#include "lilybot/peripherals/lcd.hpp"
+#include "lilybot/drivers/tb6612.hpp"
+#include "lilybot/peripherals/ultrasonic.hpp"
 
 #include <cstdint>
 #include <memory>

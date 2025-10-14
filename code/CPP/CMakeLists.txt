@@ -11,14 +11,14 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 add_library(lilybot
-    src/i2c_bus.cpp
-    src/gpio_line.cpp
-    src/drv8830.cpp
-    src/tb6612.cpp
-    src/lcd.cpp
-    src/ultrasonic.cpp
-    src/robot.cpp
-    src/kit.cpp
+    src/hal/i2c_bus.cpp
+    src/hal/gpio_line.cpp
+    src/drivers/drv8830.cpp
+    src/drivers/tb6612.cpp
+    src/peripherals/lcd.cpp
+    src/peripherals/ultrasonic.cpp
+    src/core/robot.cpp
+    src/core/kit.cpp
 )
 
 target_include_directories(lilybot

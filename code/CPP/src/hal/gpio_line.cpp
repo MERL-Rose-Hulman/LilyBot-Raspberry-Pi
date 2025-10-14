@@ -1,4 +1,4 @@
-#include "lilybot/gpio_line.hpp"
+#include "lilybot/hal/gpio_line.hpp"
 
 #include <cerrno>
 #include <cstring>

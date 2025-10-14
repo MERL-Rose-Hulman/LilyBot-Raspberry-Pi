@@ -1,4 +1,4 @@
-#include "lilybot/i2c_bus.hpp"
+#include "lilybot/hal/i2c_bus.hpp"
 
 #include <cerrno>
 #include <cstring>
@@ -34,7 +34,7 @@ int i2c_smbus_access(int fd,
     struct i2c_smbus_ioctl_data args {};
     args.read_write = read_write;
     args.command = command;
-    args.size = size;
+    args.size = static_cast<decltype(args.size)>(size);
     args.data = data;
     return ioctl(fd, I2C_SMBUS, &args);
 }

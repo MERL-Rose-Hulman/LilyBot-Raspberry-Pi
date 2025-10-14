@@ -1,6 +1,6 @@
-#include "lilybot/lcd.hpp"
+#include "lilybot/peripherals/lcd.hpp"
 
-#include "lilybot/i2c_bus.hpp"
+#include "lilybot/hal/i2c_bus.hpp"
 
 #include <algorithm>
 #include <array>

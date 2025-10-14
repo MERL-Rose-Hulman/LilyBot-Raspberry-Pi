@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lilybot/i2c_bus.hpp"
+#include "lilybot/hal/i2c_bus.hpp"
 
 #include <cstdint>
 #include <optional>

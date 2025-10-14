@@ -19,6 +19,15 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
+### Common Targets
+
+You can ask CMake to invoke a few convenience targets without having to remember the underlying generator syntax:
+
+- Rebuild everything: `cmake --build build`
+- Clean the tree: `cmake --build build --target clean`
+- Build only the demo: `cmake --build build --target lilybot_demo`
+- Install to `/usr/local`: `sudo cmake --install build`
+
 **Prerequisites (Raspberry Pi OS / Debian):**
 
 - `sudo apt install cmake g++ libi2c-dev`
@@ -41,8 +50,11 @@ Command-line flags mirror the Python defaults. Use `--driver tb6612` and `--tb66
 
 ## Source Layout
 
-- `include/lilybot/` – public headers (I²C bus abstraction, GPIO helper, motor drivers, LCD, ultrasonic sensor, robot orchestration, and kit façade).
-- `src/` – corresponding implementations plus the `lilybot_demo` executable.
+- `include/lilybot/core/` – high-level orchestration (robot façade, classroom kit APIs).
+- `include/lilybot/peripherals/` – LCD and ultrasonic helpers that sit on top of the hardware layer.
+- `include/lilybot/drivers/` – motor driver wrappers (DRV8830, TB6612) sharing the I²C infrastructure.
+- `include/lilybot/hal/` – lowest-level abstractions (SMBus/I²C bus and GPIO line helpers).
+- `src/` mirrors the same hierarchy (`core/`, `peripherals/`, `drivers/`, `hal/`) plus `main.cpp` for the demo entry point.
 - `CMakeLists.txt` – builds the `lilybot` static library and demo binary.
 
 ## Latency Notes
