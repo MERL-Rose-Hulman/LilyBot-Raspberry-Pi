@@ -4,6 +4,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <linux/i2c-dev.h>
+#include <i2c/smbus.h>
 #include <stdexcept>
 #include <string>
 #include <sys/ioctl.h>
