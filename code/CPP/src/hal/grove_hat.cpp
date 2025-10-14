@@ -55,7 +55,7 @@ uint16_t GroveHat::ultrasonic_read(uint8_t pin) {
     std::this_thread::sleep_for(std::chrono::milliseconds(80));
     uint8_t buffer[4] = {0};
     read_bytes(buffer, 4);
-    return static_cast<uint16_t>((buffer[1] << 8) | buffer[2]);
+    return static_cast<uint16_t>((buffer[0] << 8) | buffer[1]);
 }
 
 }  // namespace lilybot
