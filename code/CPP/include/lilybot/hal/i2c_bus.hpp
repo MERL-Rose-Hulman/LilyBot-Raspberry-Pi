@@ -33,6 +33,7 @@ public:
     uint8_t read_byte(uint8_t address);
     uint8_t read_byte_data(uint8_t address, uint8_t reg);
     uint16_t read_word_data(uint8_t address, uint8_t reg);
+    void read_block_data(uint8_t address, uint8_t reg, uint8_t* buffer, size_t length);
 
 private:
     void select_device(uint8_t address);

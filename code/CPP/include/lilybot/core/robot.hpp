@@ -1,9 +1,10 @@
 #pragma once
 
 #include "lilybot/drivers/drv8830.hpp"
+#include "lilybot/drivers/tb6612.hpp"
+#include "lilybot/hal/grove_hat.hpp"
 #include "lilybot/hal/i2c_bus.hpp"
 #include "lilybot/peripherals/lcd.hpp"
-#include "lilybot/drivers/tb6612.hpp"
 #include "lilybot/peripherals/ultrasonic.hpp"
 
 #include <cstdint>
@@ -71,12 +72,14 @@ class DistanceSensor {
 public:
     DistanceSensor() = default;
     explicit DistanceSensor(std::unique_ptr<UltrasonicSensor> sensor);
+    explicit DistanceSensor(std::unique_ptr<HatUltrasonicSensor> sensor);
 
-    bool available() const noexcept { return static_cast<bool>(sensor_); }
+    bool available() const noexcept { return static_cast<bool>(sensor_) || static_cast<bool>(hat_sensor_); }
     std::optional<double> read();
 
 private:
     std::unique_ptr<UltrasonicSensor> sensor_;
+    std::unique_ptr<HatUltrasonicSensor> hat_sensor_;
 };
 
 struct RobotOptions {
@@ -86,6 +89,7 @@ struct RobotOptions {
     uint8_t tb6612_address{0x14};
     uint8_t drv8830_left_address{0x60};
     uint8_t drv8830_right_address{0x61};
+    bool use_grove_hat{false};
 };
 
 class Robot {
@@ -105,6 +109,7 @@ public:
 
 private:
     I2CBus bus_;
+    std::unique_ptr<GroveHat> grove_hat_;
     MotionSystem motion_;
     DisplaySystem display_;
     DistanceSensor distance_;

@@ -197,15 +197,25 @@ void DisplaySystem::close() {
 DistanceSensor::DistanceSensor(std::unique_ptr<UltrasonicSensor> sensor)
     : sensor_(std::move(sensor)) {}
 
+DistanceSensor::DistanceSensor(std::unique_ptr<HatUltrasonicSensor> sensor)
+    : hat_sensor_(std::move(sensor)) {}
+
 std::optional<double> DistanceSensor::read() {
-    if (!sensor_) {
-        return std::nullopt;
+    if (sensor_) {
+        auto reading = sensor_->read_distance_cm();
+        if (!reading.has_value()) {
+            return std::nullopt;
+        }
+        return static_cast<double>(reading.value());
     }
-    auto reading = sensor_->read_distance_cm();
-    if (!reading.has_value()) {
-        return std::nullopt;
+    if (hat_sensor_) {
+        auto reading = hat_sensor_->read_distance_cm();
+        if (!reading.has_value()) {
+            return std::nullopt;
+        }
+        return static_cast<double>(reading.value());
     }
-    return static_cast<double>(reading.value());
+    return std::nullopt;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +226,13 @@ Robot::Robot(const RobotOptions& options)
       motion_(),
       display_(),
       distance_() {
+    if (options.use_grove_hat) {
+        try {
+            grove_hat_ = std::make_unique<GroveHat>(bus_);
+        } catch (const std::exception& exc) {
+            std::cerr << "[warn] Grove Base Hat init failed (" << exc.what() << "); falling back to sysfs GPIO\n";
+        }
+    }
     // Display ----------------------------------------------------------------
     std::unique_ptr<GroveRGBLCD> lcd;
     try {
@@ -226,17 +243,29 @@ Robot::Robot(const RobotOptions& options)
     display_ = DisplaySystem(std::move(lcd));
 
     // Distance sensor --------------------------------------------------------
-    std::unique_ptr<UltrasonicSensor> sensor;
+    bool distance_assigned = false;
     if (options.sonar_pin >= 0) {
-        try {
-            sensor = std::make_unique<UltrasonicSensor>(options.sonar_pin);
-        } catch (const std::exception& exc) {
-            std::cerr << "[warn] Ultrasonic init failed (" << exc.what() << "); distance disabled\n";
+        if (grove_hat_) {
+            try {
+                auto hat_sensor = std::make_unique<HatUltrasonicSensor>(*grove_hat_, static_cast<uint8_t>(options.sonar_pin));
+                distance_ = DistanceSensor(std::move(hat_sensor));
+                distance_assigned = true;
+            } catch (const std::exception& exc) {
+                std::cerr << "[warn] Ultrasonic init via Grove Hat failed (" << exc.what() << "); distance disabled\n";
+            }
+        }
+        if (!distance_assigned) {
+            try {
+                auto sensor = std::make_unique<UltrasonicSensor>(options.sonar_pin);
+                distance_ = DistanceSensor(std::move(sensor));
+                distance_assigned = true;
+            } catch (const std::exception& exc) {
+                std::cerr << "[warn] Ultrasonic init failed (" << exc.what() << "); distance disabled\n";
+            }
         }
     } else {
         std::cerr << "[warn] sonar_pin not provided; distance sensor disabled\n";
     }
-    distance_ = DistanceSensor(std::move(sensor));
 
     // Motors -----------------------------------------------------------------
     if (to_lower(options.driver) == "tb6612") {

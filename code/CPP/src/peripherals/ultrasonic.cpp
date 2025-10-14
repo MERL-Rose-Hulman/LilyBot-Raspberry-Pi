@@ -78,4 +78,21 @@ std::optional<float> UltrasonicSensor::perform_read() {
     return static_cast<float>(distance_cm);
 }
 
+HatUltrasonicSensor::HatUltrasonicSensor(GroveHat& hat, uint8_t pin)
+    : hat_(&hat),
+      pin_(pin) {
+    hat_->set_pin_mode(pin_, GroveHat::PinMode::Input);
+}
+
+std::optional<float> HatUltrasonicSensor::read_distance_cm() {
+    if (hat_ == nullptr) {
+        return std::nullopt;
+    }
+    const uint16_t raw = hat_->ultrasonic_read(pin_);
+    if (raw == 0) {
+        return std::nullopt;
+    }
+    return static_cast<float>(raw);
+}
+
 }  // namespace lilybot

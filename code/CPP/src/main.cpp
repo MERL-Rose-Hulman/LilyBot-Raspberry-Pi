@@ -22,6 +22,7 @@ struct CliOptions {
     uint8_t drv_right{0x60};
     uint8_t tb6612_addr{0x14};
     KitDefaults defaults{};
+    bool use_grove_hat{false};
 };
 
 void print_usage(const char* program) {
@@ -33,6 +34,7 @@ void print_usage(const char* program) {
               << "  --drv-left <addr>           I2C address for left DRV8830 (default: 0x65)\n"
               << "  --drv-right <addr>          I2C address for right DRV8830 (default: 0x60)\n"
               << "  --tb6612-addr <addr>        I2C address for TB6612 driver (default: 0x14)\n"
+              << "  --use-grove-hat             Route GPIO/ultrasonic via Grove Base Hat\n"
               << "  --speed <percent>           Default speed percentage (default: 60)\n"
               << "  --duration <seconds>        Default duration seconds (default: 1.2)\n"
               << "  --inner-scale <factor>      Default inner wheel scale (default: 0.4)\n"
@@ -67,6 +69,8 @@ CliOptions parse_args(int argc, char** argv) {
             opts.drv_right = parse_hex(require_value(arg));
         } else if (arg == "--tb6612-addr") {
             opts.tb6612_addr = parse_hex(require_value(arg));
+        } else if (arg == "--use-grove-hat") {
+            opts.use_grove_hat = true;
         } else if (arg == "--speed") {
             opts.defaults.speed = std::stod(require_value(arg));
         } else if (arg == "--duration") {
@@ -153,6 +157,7 @@ int main(int argc, char** argv) {
         options.drv8830_left_address = cli.drv_left;
         options.drv8830_right_address = cli.drv_right;
         options.tb6612_address = cli.tb6612_addr;
+        options.use_grove_hat = cli.use_grove_hat;
 
         std::cout << "Initialising LilyBot (C++) – ensure power and sensors are connected…\n";
         LilyBotKit kit(options, cli.defaults);

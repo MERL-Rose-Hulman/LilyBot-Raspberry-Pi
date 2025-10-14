@@ -13,6 +13,7 @@ endif()
 add_library(lilybot
     src/hal/i2c_bus.cpp
     src/hal/gpio_line.cpp
+    src/hal/grove_hat.cpp
     src/drivers/drv8830.cpp
     src/drivers/tb6612.cpp
     src/peripherals/lcd.cpp

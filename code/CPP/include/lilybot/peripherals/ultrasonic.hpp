@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lilybot/hal/gpio_line.hpp"
+#include "lilybot/hal/grove_hat.hpp"
 
 #include <chrono>
 #include <optional>
@@ -32,6 +33,17 @@ private:
 
     GpioLine dio_;
     Options options_;
+};
+
+class HatUltrasonicSensor {
+public:
+    HatUltrasonicSensor(GroveHat& hat, uint8_t pin);
+
+    std::optional<float> read_distance_cm();
+
+private:
+    GroveHat* hat_;
+    uint8_t pin_;
 };
 
 }  // namespace lilybot

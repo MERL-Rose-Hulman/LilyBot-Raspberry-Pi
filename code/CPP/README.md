@@ -43,10 +43,11 @@ sudo ./build/lilybot_demo \
   --bus 1 \
   --sonar-pin 5 \
   --drv-left 0x65 \
-  --drv-right 0x60
+  --drv-right 0x60 \
+  --use-grove-hat
 ```
 
-Command-line flags mirror the Python defaults. Use `--driver tb6612` and `--tb6612-addr 0x14` if you are using the Grove TB6612 I²C motor driver.
+Command-line flags mirror the Python defaults. Add `--use-grove-hat` when the Grove Base Hat should proxy GPIO (e.g., ultrasonic sensors). Use `--driver tb6612` and `--tb6612-addr 0x14` if you are using the Grove TB6612 I²C motor driver.
 
 ## Source Layout
 
