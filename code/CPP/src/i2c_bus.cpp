@@ -4,11 +4,100 @@
 #include <cstring>
 #include <fcntl.h>
 #include <linux/i2c-dev.h>
-#include <i2c/smbus.h>
-#include <stdexcept>
-#include <string>
+#include <linux/i2c.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+
+#ifndef __has_include
+#define __has_include(x) 0
+#endif
+
+#if __has_include(<i2c/smbus.h>)
+#include <i2c/smbus.h>
+#define LILYBOT_HAS_NATIVE_SMBUS 1
+#else
+#define LILYBOT_HAS_NATIVE_SMBUS 0
+#endif
+
+#if !LILYBOT_HAS_NATIVE_SMBUS
+#ifndef I2C_SMBUS_BLOCK_MAX
+#define I2C_SMBUS_BLOCK_MAX 32
+#endif
+
+namespace {
+
+int i2c_smbus_access(int fd,
+                     char read_write,
+                     uint8_t command,
+                     int size,
+                     union i2c_smbus_data* data) {
+    struct i2c_smbus_ioctl_data args {};
+    args.read_write = read_write;
+    args.command = command;
+    args.size = size;
+    args.data = data;
+    return ioctl(fd, I2C_SMBUS, &args);
+}
+
+int i2c_smbus_write_byte(int fd, uint8_t value) {
+    return i2c_smbus_access(fd, I2C_SMBUS_WRITE, value, I2C_SMBUS_BYTE, nullptr);
+}
+
+int i2c_smbus_write_byte_data(int fd, uint8_t command, uint8_t value) {
+    union i2c_smbus_data data {};
+    data.byte = value;
+    return i2c_smbus_access(fd, I2C_SMBUS_WRITE, command, I2C_SMBUS_BYTE_DATA, &data);
+}
+
+int i2c_smbus_write_word_data(int fd, uint8_t command, uint16_t value) {
+    union i2c_smbus_data data {};
+    data.word = value;
+    return i2c_smbus_access(fd, I2C_SMBUS_WRITE, command, I2C_SMBUS_WORD_DATA, &data);
+}
+
+int i2c_smbus_write_i2c_block_data(int fd,
+                                   uint8_t command,
+                                   uint8_t length,
+                                   const uint8_t* values) {
+    union i2c_smbus_data data {};
+    if (length > I2C_SMBUS_BLOCK_MAX) {
+        length = I2C_SMBUS_BLOCK_MAX;
+    }
+    data.block[0] = length;
+    for (uint8_t i = 0; i < length; ++i) {
+        data.block[i + 1] = values ? values[i] : 0;
+    }
+    return i2c_smbus_access(fd, I2C_SMBUS_WRITE, command, I2C_SMBUS_I2C_BLOCK_DATA, &data);
+}
+
+int i2c_smbus_read_byte(int fd) {
+    union i2c_smbus_data data {};
+    if (i2c_smbus_access(fd, I2C_SMBUS_READ, 0, I2C_SMBUS_BYTE, &data) < 0) {
+        return -1;
+    }
+    return data.byte & 0xFF;
+}
+
+int i2c_smbus_read_byte_data(int fd, uint8_t command) {
+    union i2c_smbus_data data {};
+    if (i2c_smbus_access(fd, I2C_SMBUS_READ, command, I2C_SMBUS_BYTE_DATA, &data) < 0) {
+        return -1;
+    }
+    return data.byte & 0xFF;
+}
+
+int i2c_smbus_read_word_data(int fd, uint8_t command) {
+    union i2c_smbus_data data {};
+    if (i2c_smbus_access(fd, I2C_SMBUS_READ, command, I2C_SMBUS_WORD_DATA, &data) < 0) {
+        return -1;
+    }
+    return data.word & 0xFFFF;
+}
+
+}  // namespace
+#endif  // !LILYBOT_HAS_NATIVE_SMBUS
+#include <stdexcept>
+#include <string>
 
 namespace lilybot {
 
