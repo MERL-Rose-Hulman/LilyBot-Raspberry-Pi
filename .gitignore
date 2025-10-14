@@ -43,3 +43,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Build directories
+build/
