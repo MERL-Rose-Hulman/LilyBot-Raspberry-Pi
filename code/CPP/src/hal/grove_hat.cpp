@@ -28,9 +28,9 @@ void GroveHat::write_command(const std::array<uint8_t, 4>& cmd) {
     bus_->write_block_data(address_, 0x01, cmd.data(), cmd.size());
 }
 
-void GroveHat::read_bytes(uint8_t* buffer, size_t length) {
+void GroveHat::read_bytes(uint8_t reg, uint8_t* buffer, size_t length) {
     std::lock_guard<std::mutex> lock(mutex_);
-    bus_->read_block_data(address_, 0x01, buffer, length);
+    bus_->read_block_data(address_, reg, buffer, length);
 }
 
 void GroveHat::set_pin_mode(uint8_t pin, PinMode mode) {
@@ -54,14 +54,14 @@ bool GroveHat::digital_read(uint8_t pin) {
 uint16_t GroveHat::ultrasonic_read(uint8_t pin) {
     write_command({CMD_ULTRASONIC_READ, pin, 0, 0});
     std::this_thread::sleep_for(std::chrono::milliseconds(80));
-    std::array<uint8_t, 4> buffer{};
-    read_bytes(buffer.data(), buffer.size());
+    std::array<uint8_t, 32> buffer{};
+    read_bytes(0x02, buffer.data(), buffer.size());
     std::cerr << "[grove_hat] ultrasonic raw: "
               << static_cast<int>(buffer[0]) << " "
               << static_cast<int>(buffer[1]) << " "
               << static_cast<int>(buffer[2]) << " "
               << static_cast<int>(buffer[3]) << "\n";
-    return static_cast<uint16_t>((buffer[1] << 8) | buffer[2]);
+    return static_cast<uint16_t>((buffer[0] << 8) | buffer[1]);
 }
 
 }  // namespace lilybot

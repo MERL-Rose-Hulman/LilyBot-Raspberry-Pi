@@ -30,12 +30,15 @@ public:
 
 private:
     void write_command(const std::array<uint8_t, 4>& cmd);
-    void read_bytes(uint8_t* buffer, size_t length);
+    void read_bytes(uint8_t reg, uint8_t* buffer, size_t length);
     void sleep_short() const;
 
     I2CBus* bus_;
     uint8_t address_;
     std::mutex mutex_;
+
+    uint16_t ultrasonic_cached_{0};
+    bool ultrasonic_valid_{false};
 };
 
 }  // namespace lilybot

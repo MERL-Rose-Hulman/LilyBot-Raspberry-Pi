@@ -1,121 +1,17 @@
 #include "lilybot/hal/i2c_bus.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
+#include <limits>
 #include <linux/i2c-dev.h>
 #include <linux/i2c.h>
+#include <string>
 #include <sys/ioctl.h>
 #include <unistd.h>
-
-#ifndef __has_include
-#define __has_include(x) 0
-#endif
-
-#if __has_include(<i2c/smbus.h>)
-#include <i2c/smbus.h>
-#define LILYBOT_HAS_NATIVE_SMBUS 1
-#else
-#define LILYBOT_HAS_NATIVE_SMBUS 0
-#endif
-
-#if !LILYBOT_HAS_NATIVE_SMBUS
-#ifndef I2C_SMBUS_BLOCK_MAX
-#define I2C_SMBUS_BLOCK_MAX 32
-#endif
-
-namespace {
-
-int i2c_smbus_access(int fd,
-                     char read_write,
-                     uint8_t command,
-                     int size,
-                     union i2c_smbus_data* data) {
-    struct i2c_smbus_ioctl_data args {};
-    args.read_write = read_write;
-    args.command = command;
-    args.size = static_cast<decltype(args.size)>(size);
-    args.data = data;
-    return ioctl(fd, I2C_SMBUS, &args);
-}
-
-int i2c_smbus_write_byte(int fd, uint8_t value) {
-    return i2c_smbus_access(fd, I2C_SMBUS_WRITE, value, I2C_SMBUS_BYTE, nullptr);
-}
-
-int i2c_smbus_write_byte_data(int fd, uint8_t command, uint8_t value) {
-    union i2c_smbus_data data {};
-    data.byte = value;
-    return i2c_smbus_access(fd, I2C_SMBUS_WRITE, command, I2C_SMBUS_BYTE_DATA, &data);
-}
-
-int i2c_smbus_write_word_data(int fd, uint8_t command, uint16_t value) {
-    union i2c_smbus_data data {};
-    data.word = value;
-    return i2c_smbus_access(fd, I2C_SMBUS_WRITE, command, I2C_SMBUS_WORD_DATA, &data);
-}
-
-int i2c_smbus_write_i2c_block_data(int fd,
-                                   uint8_t command,
-                                   uint8_t length,
-                                   const uint8_t* values) {
-    union i2c_smbus_data data {};
-    if (length > I2C_SMBUS_BLOCK_MAX) {
-        length = I2C_SMBUS_BLOCK_MAX;
-    }
-    data.block[0] = length;
-    for (uint8_t i = 0; i < length; ++i) {
-        data.block[i + 1] = values ? values[i] : 0;
-    }
-    return i2c_smbus_access(fd, I2C_SMBUS_WRITE, command, I2C_SMBUS_I2C_BLOCK_DATA, &data);
-}
-
-int i2c_smbus_read_byte(int fd) {
-    union i2c_smbus_data data {};
-    if (i2c_smbus_access(fd, I2C_SMBUS_READ, 0, I2C_SMBUS_BYTE, &data) < 0) {
-        return -1;
-    }
-    return data.byte & 0xFF;
-}
-
-int i2c_smbus_read_byte_data(int fd, uint8_t command) {
-    union i2c_smbus_data data {};
-    if (i2c_smbus_access(fd, I2C_SMBUS_READ, command, I2C_SMBUS_BYTE_DATA, &data) < 0) {
-        return -1;
-    }
-    return data.byte & 0xFF;
-}
-
-int i2c_smbus_read_word_data(int fd, uint8_t command) {
-    union i2c_smbus_data data {};
-    if (i2c_smbus_access(fd, I2C_SMBUS_READ, command, I2C_SMBUS_WORD_DATA, &data) < 0) {
-        return -1;
-    }
-    return data.word & 0xFFFF;
-}
-
-int i2c_smbus_read_i2c_block_data(int fd, uint8_t command, uint8_t length, uint8_t* values) {
-    union i2c_smbus_data data {};
-    if (length > I2C_SMBUS_BLOCK_MAX) {
-        length = I2C_SMBUS_BLOCK_MAX;
-    }
-    if (i2c_smbus_access(fd, I2C_SMBUS_READ, command, I2C_SMBUS_I2C_BLOCK_DATA, &data) < 0) {
-        return -1;
-    }
-    uint8_t actual = data.block[0];
-    if (actual > length) {
-        actual = length;
-    }
-    for (uint8_t i = 0; i < actual; ++i) {
-        values[i] = data.block[i + 1];
-    }
-    return actual;
-}
-
-}  // namespace
-#endif  // !LILYBOT_HAS_NATIVE_SMBUS
-#include <stdexcept>
-#include <string>
+#include <vector>
 
 namespace lilybot {
 
@@ -168,94 +64,131 @@ I2CBus::~I2CBus() {
     }
 }
 
-void I2CBus::select_device(uint8_t address) {
+void I2CBus::transfer(uint8_t address,
+                      std::vector<uint8_t>& tx_buffer,
+                      std::vector<uint8_t>& rx_buffer) {
     if (fd_ < 0) {
         throw I2CError("I2C bus not open");
     }
-    if (ioctl(fd_, I2C_SLAVE, address) < 0) {
-        throw_errno("Failed to select I2C address 0x" + std::to_string(address));
+    if (tx_buffer.empty() && rx_buffer.empty()) {
+        return;
+    }
+    if (tx_buffer.size() > std::numeric_limits<__u16>::max() ||
+        rx_buffer.size() > std::numeric_limits<__u16>::max()) {
+        throw I2CError("I2C transfer length exceeds kernel limit");
+    }
+
+    std::array<i2c_msg, 2> messages{};
+    std::size_t msg_count = 0;
+
+    if (!tx_buffer.empty()) {
+        messages[msg_count].addr = static_cast<__u16>(address);
+        messages[msg_count].flags = 0;
+        messages[msg_count].len = static_cast<__u16>(tx_buffer.size());
+        messages[msg_count].buf = tx_buffer.data();
+        ++msg_count;
+    }
+    if (!rx_buffer.empty()) {
+        messages[msg_count].addr = static_cast<__u16>(address);
+        messages[msg_count].flags = I2C_M_RD;
+        messages[msg_count].len = static_cast<__u16>(rx_buffer.size());
+        messages[msg_count].buf = rx_buffer.data();
+        ++msg_count;
+    }
+
+    i2c_rdwr_ioctl_data ioctl_data{};
+    ioctl_data.msgs = messages.data();
+    ioctl_data.nmsgs = static_cast<__u32>(msg_count);
+
+    if (ioctl(fd_, I2C_RDWR, &ioctl_data) < 0) {
+        throw_errno("I2C_RDWR ioctl failed");
     }
 }
 
 void I2CBus::write_byte(uint8_t address, uint8_t value) {
     std::lock_guard<std::mutex> lock(mutex_);
-    select_device(address);
-    if (i2c_smbus_write_byte(fd_, value) < 0) {
-        throw_errno("i2c_smbus_write_byte failed");
-    }
+    std::vector<uint8_t> tx = {value};
+    std::vector<uint8_t> rx;
+    transfer(address, tx, rx);
 }
 
 void I2CBus::write_byte_data(uint8_t address, uint8_t reg, uint8_t value) {
     std::lock_guard<std::mutex> lock(mutex_);
-    select_device(address);
-    if (i2c_smbus_write_byte_data(fd_, reg, value) < 0) {
-        throw_errno("i2c_smbus_write_byte_data failed");
-    }
+    std::vector<uint8_t> tx = {reg, value};
+    std::vector<uint8_t> rx;
+    transfer(address, tx, rx);
 }
 
 void I2CBus::write_word_data(uint8_t address, uint8_t reg, uint16_t value) {
     std::lock_guard<std::mutex> lock(mutex_);
-    select_device(address);
-    if (i2c_smbus_write_word_data(fd_, reg, value) < 0) {
-        throw_errno("i2c_smbus_write_word_data failed");
-    }
+    // Word writes expect little-endian payload, matching SMBus semantics.
+    std::vector<uint8_t> tx = {
+        reg,
+        static_cast<uint8_t>(value & 0xFF),
+        static_cast<uint8_t>((value >> 8) & 0xFF)
+    };
+    std::vector<uint8_t> rx;
+    transfer(address, tx, rx);
 }
 
-void I2CBus::write_block_data(uint8_t address, uint8_t reg, const uint8_t* data, size_t length) {
+void I2CBus::write_block_data(uint8_t address,
+                              uint8_t reg,
+                              const uint8_t* data,
+                              size_t length) {
     std::lock_guard<std::mutex> lock(mutex_);
-    select_device(address);
-    if (length > I2C_SMBUS_BLOCK_MAX) {
-        throw I2CError("I2C block write length exceeds SMBus limit");
+    std::vector<uint8_t> tx;
+    tx.reserve(length + 1);
+    tx.push_back(reg);
+    if (length > 0) {
+        if (data == nullptr) {
+            throw I2CError("Null data pointer for I2C block write");
+        }
+        tx.insert(tx.end(), data, data + length);
     }
-    if (i2c_smbus_write_i2c_block_data(fd_, reg, static_cast<uint8_t>(length), data) < 0) {
-        throw_errno("i2c_smbus_write_i2c_block_data failed");
-    }
+    std::vector<uint8_t> rx;
+    transfer(address, tx, rx);
 }
 
 uint8_t I2CBus::read_byte(uint8_t address) {
     std::lock_guard<std::mutex> lock(mutex_);
-    select_device(address);
-    int ret = i2c_smbus_read_byte(fd_);
-    if (ret < 0) {
-        throw_errno("i2c_smbus_read_byte failed");
-    }
-    return static_cast<uint8_t>(ret);
+    std::vector<uint8_t> tx;
+    std::vector<uint8_t> rx(1, 0);
+    transfer(address, tx, rx);
+    return rx[0];
 }
 
 uint8_t I2CBus::read_byte_data(uint8_t address, uint8_t reg) {
     std::lock_guard<std::mutex> lock(mutex_);
-    select_device(address);
-    int ret = i2c_smbus_read_byte_data(fd_, reg);
-    if (ret < 0) {
-        throw_errno("i2c_smbus_read_byte_data failed");
-    }
-    return static_cast<uint8_t>(ret);
+    std::vector<uint8_t> tx = {reg};
+    std::vector<uint8_t> rx(1, 0);
+    transfer(address, tx, rx);
+    return rx[0];
 }
 
 uint16_t I2CBus::read_word_data(uint8_t address, uint8_t reg) {
     std::lock_guard<std::mutex> lock(mutex_);
-    select_device(address);
-    int ret = i2c_smbus_read_word_data(fd_, reg);
-    if (ret < 0) {
-        throw_errno("i2c_smbus_read_word_data failed");
-    }
-    return static_cast<uint16_t>(ret);
+    std::vector<uint8_t> tx = {reg};
+    std::vector<uint8_t> rx(2, 0);
+    transfer(address, tx, rx);
+    return static_cast<uint16_t>(rx[0]) |
+           (static_cast<uint16_t>(rx[1]) << 8);
 }
 
-void I2CBus::read_block_data(uint8_t address, uint8_t reg, uint8_t* buffer, size_t length) {
+void I2CBus::read_block_data(uint8_t address,
+                             uint8_t reg,
+                             uint8_t* buffer,
+                             size_t length) {
+    if (length == 0) {
+        return;
+    }
+    if (buffer == nullptr) {
+        throw I2CError("Null buffer for I2C block read");
+    }
     std::lock_guard<std::mutex> lock(mutex_);
-    select_device(address);
-    if (length > I2C_SMBUS_BLOCK_MAX) {
-        throw I2CError("I2C block read length exceeds SMBus limit");
-    }
-    int ret = i2c_smbus_read_i2c_block_data(fd_, reg, static_cast<uint8_t>(length), buffer);
-    if (ret < 0) {
-        throw_errno("i2c_smbus_read_i2c_block_data failed");
-    }
-    // Zero-fill any remaining space if fewer bytes were returned.
-    for (int i = ret; i < static_cast<int>(length); ++i) {
-        buffer[i] = 0;
-    }
+    std::vector<uint8_t> tx = {reg};
+    std::vector<uint8_t> rx(length, 0);
+    transfer(address, tx, rx);
+    std::copy(rx.begin(), rx.end(), buffer);
 }
 
 }  // namespace lilybot

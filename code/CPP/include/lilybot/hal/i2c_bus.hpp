@@ -1,10 +1,11 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <mutex>
-#include <string>
 #include <stdexcept>
-#include <cstddef>
+#include <string>
+#include <vector>
 
 namespace lilybot {
 
@@ -36,7 +37,9 @@ public:
     void read_block_data(uint8_t address, uint8_t reg, uint8_t* buffer, size_t length);
 
 private:
-    void select_device(uint8_t address);
+    void transfer(uint8_t address,
+                  std::vector<uint8_t>& tx_buffer,
+                  std::vector<uint8_t>& rx_buffer);
 
     int bus_id_;
     int fd_;
