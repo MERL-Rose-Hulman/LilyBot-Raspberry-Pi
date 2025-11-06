@@ -187,6 +187,33 @@ class DistanceComponent(KitComponent):
         return distance
 
 
+class LEDComponent(KitComponent):
+    """Expose the Grove LED as a lesson-friendly helper."""
+
+    def __init__(self, robot: Robot) -> None:
+        super().__init__("led")
+        self._robot = robot
+
+    @property
+    def available(self) -> bool:  # type: ignore[override]
+        return getattr(self._robot, "led_present", False)
+
+    def on(self) -> None:
+        if not self.available:
+            return
+        self._robot.led.on()
+
+    def off(self) -> None:
+        if not self.available:
+            return
+        self._robot.led.off()
+
+    def blink(self, *, count: int = 3, on_time: float = 0.5, off_time: float = 0.5) -> None:
+        if not self.available:
+            return
+        self._robot.led.blink(count=count, on_time=on_time, off_time=off_time)
+
+
 class LilyBotKit:
     """Co-ordinates all robot components for lesson-friendly scripting."""
 
@@ -196,6 +223,7 @@ class LilyBotKit:
         driver: str = "tb6612",
         bus_id: int = 1,
         sonar_pin: Optional[int] = None,
+        led_pin: Optional[int] = None,
         tb6612_addr: int = 0x14,
         drv8830_left: int = 0x60,
         drv8830_right: int = 0x61,
@@ -209,6 +237,7 @@ class LilyBotKit:
             driver=driver,
             bus_id=bus_id,
             sonar_pin=sonar_pin,
+            led_pin=led_pin,
             tb6612_addr=tb6612_addr,
             drv8830_left=drv8830_left,
             drv8830_right=drv8830_right,
@@ -221,10 +250,12 @@ class LilyBotKit:
         self.motors = MotorComponent(self.robot, self.defaults)
         self.display = DisplayComponent(self.robot)
         self.distance = DistanceComponent(self.robot)
+        self.led = LEDComponent(self.robot)
 
         self.register_component("motors", self.motors)
         self.register_component("display", self.display)
         self.register_component("distance", self.distance)
+        self.register_component("led", self.led)
 
     # -------------------------------------------------------------------------
     def register_component(self, name: str, component: KitComponent) -> None:
@@ -290,5 +321,6 @@ __all__ = [
     "MotorComponent",
     "DisplayComponent",
     "DistanceComponent",
+    "LEDComponent",
     "LilyBotKit",
 ]

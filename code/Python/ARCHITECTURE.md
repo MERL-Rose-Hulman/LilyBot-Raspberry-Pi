@@ -14,7 +14,7 @@ new sensors or actuators.
 ┌───────────────┴─────────────────────────────────────────────────────┐
 │  Core Hardware Abstractions: lilybot/robot.py                       │
 │   • Robot manages the shared I2C bus                                │
-│   • MotionSystem / DisplaySystem / DistanceSensor                   │
+│   • MotionSystem / DisplaySystem / LedSystem / DistanceSensor       │
 │   • ActionRunner executes scripted motion sequences                  │
 └───────────────▲─────────────────────────────────────────────────────┘
                 │ (Reuse shared defaults and resilience strategies)
@@ -98,7 +98,7 @@ example below assumes a temperature sensor):
 - **`ActionRunner`** – interprets action tuples and triggers the appropriate
   motor or sensor behaviour.
 - **`LilyBotKit`** – classroom wrapper that surfaces semantic components such as
-  `kit.motors`, `kit.display`, and `kit.distance`, plus helpers like
+  `kit.motors`, `kit.display`, `kit.led`, and `kit.distance`, plus helpers like
   `run_actions` and `run_prebuilt_demo`.
 
 Keeping the stack ordered as Device → Robot → Kit allows us to provide a gentle

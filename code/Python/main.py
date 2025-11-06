@@ -15,6 +15,7 @@ from lilybot import KitDefaults, LilyBotKit
 DRIVER = "drv8830"          # 也可改为 "tb6612"
 I2C_BUS = 1
 SONAR_PIN = 5               # Grove 超声波模块插入的 GPIO 引脚（例：D5 → 5）
+LED_PIN = 12               # Grove LED 模块插入的 GPIO 引脚（例：D12 → 12）
 DRV8830_LEFT = 0x65         # 左轮驱动板 I2C 地址
 DRV8830_RIGHT = 0x60        # 右轮驱动板 I2C 地址
 TB6612_ADDR = 0x14          # TB6612 驱动板地址（当 DRIVER="tb6612" 时生效）
@@ -40,6 +41,17 @@ def check_distance(kit: LilyBotKit, note: str) -> Optional[float]:
     else:
         print(f"[{note}] Distance = {distance:.1f} cm")
     return distance
+
+
+def demo_led(kit: LilyBotKit) -> None:
+    """Blink the status LED if the classroom rig includes one."""
+    led = getattr(kit, "led", None)
+    if led is None or not led.available:
+        print("[info] LED is not connected; skipping the light demo.")
+        return
+
+    print("→ Blinking LED indicator")
+    led.blink(count=3, on_time=0.3, off_time=0.3)
 
 
 def demo_motions(kit: LilyBotKit) -> None:
@@ -94,12 +106,14 @@ def main() -> None:
         driver=DRIVER,
         bus_id=I2C_BUS,
         sonar_pin=SONAR_PIN,
+        led_pin=LED_PIN,
         tb6612_addr=TB6612_ADDR,
         drv8830_left=DRV8830_LEFT,
         drv8830_right=DRV8830_RIGHT,
         defaults=DEFAULTS,
     ) as kit:
         show_header(kit)
+        demo_led(kit)
 
         check_distance(kit, "Start Distance")
         demo_motions(kit)

@@ -10,9 +10,15 @@ future hardware extensions.
 ```python
 from lilybot import LilyBotKit
 
-# Instantiate the kit (tweak I2C parameters to match the hardware setup)
-kit = LilyBotKit(driver="drv8830", bus_id=1, sonar_pin=5,
-                 drv8830_left=0x60, drv8830_right=0x65)
+# Instantiate the kit (tweak pins/addresses to match the hardware setup)
+kit = LilyBotKit(
+    driver="drv8830",
+    bus_id=1,
+    sonar_pin=5,
+    led_pin=12,
+    drv8830_left=0x60,
+    drv8830_right=0x65,
+)
 
 # High level motion helpers
 kit.motors.forward(speed=60, duration=1.5)
@@ -43,6 +49,8 @@ kit.close()
   `write`, `set_color`, and `show_distance` helpers.
 - `kit.distance`: ultrasonic helper exposing `read()` and
   `read_and_display()` for easy integration with the display.
+- `kit.led`: Grove LED helper with `on()`, `off()`, and `blink()` for status cues
+  or classroom exercises.
 - `kit.run_actions(...)`: executes the same action tuples accepted by the
   command-line interface so classroom scripts or notebooks can replay CLI
   experiments verbatim.

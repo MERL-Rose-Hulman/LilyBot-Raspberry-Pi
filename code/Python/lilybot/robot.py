@@ -22,6 +22,7 @@ except ImportError:  # pragma: no cover - fallback when smbus2 is missing
 from .drivers.drive6612 import get_controller
 from .drivers.drive8830 import get_driver
 from .peripherals.lcd import GroveRGBLCD
+from .peripherals.led import GroveLed
 from .peripherals.ultrasonic import GroveUltrasonicRanger
 
 
@@ -186,6 +187,51 @@ class DisplaySystem:
             self._lcd.close()
 
 
+class LedSystem:
+    def __init__(self, led: Optional[GroveLed]) -> None:
+        self._led = led
+
+    @property
+    def available(self) -> bool:
+        return self._led is not None
+
+    def on(self) -> None:
+        if self._led is None:
+            return
+        self._led.on()
+
+    def off(self) -> None:
+        if self._led is None:
+            return
+        self._led.off()
+
+    def blink(self, *, count: int = 3, on_time: float = 0.5, off_time: float = 0.5) -> None:
+        if self._led is None:
+            return
+        if count <= 0:
+            self._led.off()
+            return
+        for _ in range(count):
+            self._led.on()
+            if on_time > 0:
+                time.sleep(on_time)
+            self._led.off()
+            if off_time > 0:
+                time.sleep(off_time)
+
+    def close(self) -> None:
+        if self._led is None:
+            return
+        try:
+            self._led.off()
+        finally:
+            if hasattr(self._led, "close"):
+                try:
+                    self._led.close()
+                except Exception:
+                    pass
+
+
 class DistanceSensor:
     def __init__(self, sensor: Optional[GroveUltrasonicRanger]) -> None:
         self._sensor = sensor
@@ -213,6 +259,7 @@ class Robot:
         driver: str = "tb6612",
         bus_id: int = 1,
         sonar_pin: int,
+        led_pin: Optional[int] = None,
         tb6612_addr: int = 0x14,
         drv8830_left: int = 0x60,
         drv8830_right: int = 0x61,
@@ -246,6 +293,21 @@ class Robot:
             self.sonar_present = False
 
         self.distance_sensor = DistanceSensor(self.sonar)
+
+        # LED ---------------------------------------------------------------
+        led_device: Optional[GroveLed]
+        if led_pin is None:
+            led_device = None
+        else:
+            try:
+                led_device = GroveLed(led_pin)
+            except Exception as exc:
+                print(f"[warn] LED init failed ({exc}); continuing without LED", file=sys.stderr)
+                led_device = None
+
+        self._led_device = led_device
+        self.led = LedSystem(led_device)
+        self.led_present = self.led.available
 
         # Motors --------------------------------------------------------------
         motion: MotionSystem
@@ -313,7 +375,10 @@ class Robot:
             try:
                 self.display.close()
             finally:
-                self.bus.close()
+                try:
+                    self.led.close()
+                finally:
+                    self.bus.close()
 
 
 class ActionRunner:
@@ -437,6 +502,7 @@ def build_robot(
     driver: str = "tb6612",
     bus_id: int = 1,
     sonar_pin: int,
+    led_pin: Optional[int] = None,
     tb6612_addr: int = 0x14,
     drv8830_left: int = 0x60,
     drv8830_right: int = 0x61,
@@ -445,6 +511,7 @@ def build_robot(
         driver=driver,
         bus_id=bus_id,
         sonar_pin=sonar_pin,
+        led_pin=led_pin,
         tb6612_addr=tb6612_addr,
         drv8830_left=drv8830_left,
         drv8830_right=drv8830_right,
@@ -504,6 +571,7 @@ __all__ = [
     "Robot",
     "MotionSystem",
     "DisplaySystem",
+    "LedSystem",
     "DistanceSensor",
     "ActionDefaults",
     "ActionSpec",

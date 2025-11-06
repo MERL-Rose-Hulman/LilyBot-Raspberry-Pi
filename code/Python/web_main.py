@@ -18,6 +18,7 @@ from lilybot import KitDefaults, LilyBotKit
 DRIVER = "drv8830"          # Set to "tb6612" if you use that motor driver
 I2C_BUS = 1
 SONAR_PIN = 5               # GPIO pin (BCM numbering) for the ultrasonic ranger
+LED_PIN = 12               # GPIO pin for the Grove LED (e.g. D12 -> 12)
 DRV8830_LEFT = 0x65
 DRV8830_RIGHT = 0x60
 TB6612_ADDR = 0x14
@@ -51,6 +52,7 @@ def _get_kit() -> LilyBotKit:
             driver=DRIVER,
             bus_id=I2C_BUS,
             sonar_pin=SONAR_PIN,
+            led_pin=LED_PIN,
             tb6612_addr=TB6612_ADDR,
             drv8830_left=DRV8830_LEFT,
             drv8830_right=DRV8830_RIGHT,
@@ -171,6 +173,7 @@ def api_status():
             "motors": kit.motors.available,
             "display": kit.display.available,
             "distance": kit.distance.available,
+            "led": kit.led.available if hasattr(kit, "led") else False,
             "defaults": {
                 "speed": DEFAULTS.speed,
                 "duration": DEFAULTS.duration,
@@ -241,6 +244,44 @@ def api_distance():
     if distance is None:
         return jsonify({"distance_cm": None, "available": False}), 503
     return jsonify({"distance_cm": round(distance, 2), "available": True})
+
+
+@app.route("/api/led", methods=["POST"])
+def api_led():
+    """Control the Grove LED via the web UI."""
+    payload = request.get_json(silent=True) or {}
+    state = (payload.get("state") or "").strip().lower()
+    try:
+        count = int(payload.get("count", 3))
+    except (TypeError, ValueError):
+        return jsonify({"error": "count must be an integer."}), 400
+    try:
+        on_time = float(payload.get("on_time", 0.3))
+        off_time = float(payload.get("off_time", 0.3))
+    except (TypeError, ValueError):
+        return jsonify({"error": "on_time/off_time must be numbers."}), 400
+
+    count = max(0, count)
+    on_time = max(0.0, on_time)
+    off_time = max(0.0, off_time)
+
+    with _kit_lock:
+        kit = _get_kit()
+        led = getattr(kit, "led", None)
+        if led is None or not led.available:
+            return jsonify({"error": "LED not connected."}), 404
+        try:
+            if state == "on":
+                led.on()
+            elif state == "off":
+                led.off()
+            elif state == "blink":
+                led.blink(count=count, on_time=on_time, off_time=off_time)
+            else:
+                return jsonify({"error": f"Unsupported LED state '{state}'."}), 400
+        except Exception as exc:  # pragma: no cover - hardware error path
+            return jsonify({"error": f"LED command failed: {exc}"}), 500
+    return jsonify({"ok": True, "state": state})
 
 
 @app.route("/api/stop", methods=["POST"])

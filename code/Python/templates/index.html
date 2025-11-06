@@ -157,6 +157,7 @@
           <div class="status-card"><strong>Motors</strong><span id="status-motors" class="status-indicator">-</span></div>
           <div class="status-card"><strong>Display</strong><span id="status-display" class="status-indicator">-</span></div>
           <div class="status-card"><strong>Distance</strong><span id="status-distance" class="status-indicator">-</span></div>
+          <div class="status-card"><strong>LED</strong><span id="status-led" class="status-indicator">-</span></div>
           <div class="status-card"><strong>Auto Demo</strong><span id="status-demo" class="status-indicator">-</span></div>
         </div>
       </section>
@@ -199,6 +200,15 @@
       </section>
 
       <section>
+        <h2>Status LED</h2>
+        <div class="distance">
+          <button id="btn-led-on" class="secondary">Turn On</button>
+          <button id="btn-led-off" class="secondary">Turn Off</button>
+          <button id="btn-led-blink">Blink</button>
+        </div>
+      </section>
+
+      <section>
         <h2>Event Log</h2>
         <div id="log">Waiting for commands...</div>
       </section>
@@ -212,6 +222,7 @@
         motors: document.getElementById("status-motors"),
         display: document.getElementById("status-display"),
         distance: document.getElementById("status-distance"),
+        led: document.getElementById("status-led"),
         demo: document.getElementById("status-demo"),
       };
       const speedEl = document.getElementById("input-speed");
@@ -222,9 +233,16 @@
       const distanceOutput = document.getElementById("distance-output");
       const demoStartBtn = document.getElementById("btn-demo-start");
       const demoStopBtn = document.getElementById("btn-demo-stop");
+      const ledOnBtn = document.getElementById("btn-led-on");
+      const ledOffBtn = document.getElementById("btn-led-off");
+      const ledBlinkBtn = document.getElementById("btn-led-blink");
+      const ledButtons = [ledOnBtn, ledOffBtn, ledBlinkBtn];
+      ledButtons.forEach((btn) => {
+        if (btn) btn.disabled = true;
+      });
 
       const nonStopActions = Object.keys(actionLabels).filter((name) => name !== "stop");
-      const latestStatus = { demo_running: false };
+      const latestStatus = { demo_running: false, led_available: false };
 
       function appendLog(message) {
         const now = new Date();
@@ -257,6 +275,12 @@
           setStatus("motors", data.motors);
           setStatus("display", data.display);
           setStatus("distance", data.distance);
+          setStatus("led", data.led, {
+            trueLabel: "Available",
+            falseLabel: "Missing",
+            trueColor: "#22c55e",
+            falseColor: "#f97316",
+          });
           setStatus("demo", Boolean(data.demo_running), {
             trueLabel: "Running",
             falseLabel: "Stopped",
@@ -264,6 +288,10 @@
             falseColor: "#e2e8f0",
           });
           latestStatus.demo_running = Boolean(data.demo_running);
+          latestStatus.led_available = Boolean(data.led);
+          ledButtons.forEach((btn) => {
+            if (btn) btn.disabled = !latestStatus.led_available;
+          });
           demoStartBtn.disabled = latestStatus.demo_running;
           demoStopBtn.disabled = !latestStatus.demo_running;
           if (typeof data.defaults?.speed === "number") {
@@ -343,6 +371,36 @@
         }
       }
 
+      async function controlLed(state, options = {}) {
+        if (!latestStatus.led_available) {
+          appendLog("LED is not connected.");
+          return;
+        }
+        const payload = { state, ...options };
+        try {
+          const response = await fetch("/api/led", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || `HTTP ${response.status}`);
+          }
+          const label =
+            state === "blink"
+              ? "blink"
+              : state === "on"
+              ? "on"
+              : state === "off"
+              ? "off"
+              : state;
+          appendLog(`LED ${label} command sent.`);
+        } catch (err) {
+          appendLog(`LED command failed: ${err.message}`);
+        }
+      }
+
       async function startDemo() {
         try {
           const response = await fetch("/api/demo/avoidance", { method: "POST" });
@@ -394,6 +452,11 @@
       distanceBtn.addEventListener("click", readDistance);
       demoStartBtn.addEventListener("click", startDemo);
       demoStopBtn.addEventListener("click", stopDemo);
+      if (ledOnBtn) ledOnBtn.addEventListener("click", () => controlLed("on"));
+      if (ledOffBtn) ledOffBtn.addEventListener("click", () => controlLed("off"));
+      if (ledBlinkBtn) ledBlinkBtn.addEventListener("click", () =>
+        controlLed("blink", { count: 3, on_time: 0.25, off_time: 0.25 })
+      );
 
       refreshStatus();
     </script>

@@ -1,13 +1,14 @@
 """LilyBot educational toolkit."""
 
 from . import drivers, peripherals
-from .kit import KitComponent, KitDefaults, LilyBotKit
+from .kit import KitComponent, KitDefaults, LEDComponent, LilyBotKit
 from .robot import (
     ActionDefaults,
     ActionRunner,
     ActionSpec,
     DistanceSensor,
     DisplaySystem,
+    LedSystem,
     MotionSystem,
     Robot,
     available_actions,
@@ -20,9 +21,11 @@ __all__ = [
     "LilyBotKit",
     "KitComponent",
     "KitDefaults",
+    "LEDComponent",
     "Robot",
     "MotionSystem",
     "DisplaySystem",
+    "LedSystem",
     "DistanceSensor",
     "ActionDefaults",
     "ActionSpec",
