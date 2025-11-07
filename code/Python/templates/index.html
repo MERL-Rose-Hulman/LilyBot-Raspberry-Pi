@@ -140,6 +140,46 @@
         font-size: 1.25rem;
         font-weight: 600;
       }
+      .hardware-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+      }
+      .hardware-card {
+        background: rgba(30, 41, 59, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        border-radius: 0.75rem;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .hardware-card h3 {
+        margin: 0;
+        font-size: 1rem;
+        letter-spacing: 0.01em;
+        color: rgba(226, 232, 240, 0.95);
+      }
+      .hardware-table table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      .hardware-table th,
+      .hardware-table td {
+        text-align: left;
+        padding: 0.4rem 0.35rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+      }
+      .hardware-table th {
+        font-weight: 600;
+        color: rgba(226, 232, 240, 0.85);
+      }
+      .hardware-placeholder {
+        margin: 0;
+        font-size: 0.9rem;
+        color: rgba(148, 163, 184, 0.7);
+      }
     </style>
   </head>
   <body>
@@ -159,6 +199,20 @@
           <div class="status-card"><strong>Distance</strong><span id="status-distance" class="status-indicator">-</span></div>
           <div class="status-card"><strong>LED</strong><span id="status-led" class="status-indicator">-</span></div>
           <div class="status-card"><strong>Auto Demo</strong><span id="status-demo" class="status-indicator">-</span></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Hardware Registry</h2>
+        <div class="hardware-grid">
+          <div class="hardware-card">
+            <h3>GPIO Pins</h3>
+            <div id="hardware-gpio" class="hardware-table"></div>
+          </div>
+          <div class="hardware-card">
+            <h3>I2C Addresses</h3>
+            <div id="hardware-i2c" class="hardware-table"></div>
+          </div>
         </div>
       </section>
 
@@ -240,6 +294,8 @@
       ledButtons.forEach((btn) => {
         if (btn) btn.disabled = true;
       });
+      const hardwareGpioEl = document.getElementById("hardware-gpio");
+      const hardwareI2cEl = document.getElementById("hardware-i2c");
 
       const nonStopActions = Object.keys(actionLabels).filter((name) => name !== "stop");
       const latestStatus = { demo_running: false, led_available: false };
@@ -265,6 +321,80 @@
           el.textContent = state;
           el.style.color = labels.stringColor || "#e2e8f0";
         }
+      }
+
+      function renderResourceTable(container, headers, rows, emptyLabel) {
+        if (!container) return;
+        if (!rows.length) {
+          container.innerHTML = `<p class="hardware-placeholder">${emptyLabel}</p>`;
+          return;
+        }
+        const headerHtml = headers.map((title) => `<th>${title}</th>`).join("");
+        const rowsHtml = rows
+          .map((cols) => `<tr>${cols.map((col) => `<td>${col}</td>`).join("")}</tr>`)
+          .join("");
+        container.innerHTML = `<table><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+      }
+
+      function renderHardware(snapshot) {
+        const gpioData = snapshot?.gpio || {};
+        const gpioRows = Object.entries(gpioData)
+          .map(([pin, record]) => ({
+            pin: Number(pin),
+            role: record?.role || "-",
+            owner: record?.owner || "-",
+            protocol: record?.protocol || "GPIO",
+          }))
+          .sort((a, b) => a.pin - b.pin)
+          .map((entry) => [
+            Number.isNaN(entry.pin) ? String(entry.pin) : entry.pin.toString(),
+            entry.role,
+            entry.owner,
+            entry.protocol,
+          ]);
+        renderResourceTable(
+          hardwareGpioEl,
+          ["Pin", "Role", "Owner", "Protocol"],
+          gpioRows,
+          "No GPIO pins reserved."
+        );
+
+        const i2cData = snapshot?.i2c || {};
+        const i2cRows = Object.entries(i2cData)
+          .map(([key, record]) => {
+            const [bus, address] = key.split(":");
+            const busId = Number(bus);
+            const addressNum = Number(address);
+            const addrText = Number.isNaN(addressNum)
+              ? address
+              : `0x${addressNum.toString(16).toUpperCase().padStart(2, "0")}`;
+            return {
+              bus: Number.isNaN(busId) ? bus : busId,
+              address: addrText,
+              role: record?.role || "-",
+              owner: record?.owner || "-",
+              protocol: record?.protocol || "I2C",
+            };
+          })
+          .sort((a, b) => {
+            const busA = typeof a.bus === "number" ? a.bus : Number.MAX_SAFE_INTEGER;
+            const busB = typeof b.bus === "number" ? b.bus : Number.MAX_SAFE_INTEGER;
+            if (busA !== busB) return busA - busB;
+            return a.address.localeCompare(b.address);
+          })
+          .map((entry) => [
+            typeof entry.bus === "number" ? entry.bus.toString() : entry.bus,
+            entry.address,
+            entry.role,
+            entry.owner,
+            entry.protocol,
+          ]);
+        renderResourceTable(
+          hardwareI2cEl,
+          ["Bus", "Address", "Role", "Owner", "Protocol"],
+          i2cRows,
+          "No I2C devices reserved."
+        );
       }
 
       async function refreshStatus() {
@@ -294,6 +424,7 @@
           });
           demoStartBtn.disabled = latestStatus.demo_running;
           demoStopBtn.disabled = !latestStatus.demo_running;
+          renderHardware(data.hardware || {});
           if (typeof data.defaults?.speed === "number") {
             speedEl.value = data.defaults.speed;
           }
