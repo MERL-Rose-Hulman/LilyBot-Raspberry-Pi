@@ -21,7 +21,8 @@ except ImportError:  # pragma: no cover - fallback when smbus2 is missing
 
 from .drivers.drive6612 import get_controller
 from .drivers.drive8830 import get_driver
-from .peripherals.lcd import GroveRGBLCD
+from .hardware_registry import HardwareRegistry
+from .peripherals.lcd import GroveRGBLCD, LCD_ADDR
 from .peripherals.led import GroveLed
 from .peripherals.ultrasonic import GroveUltrasonicRanger
 
@@ -263,15 +264,27 @@ class Robot:
         tb6612_addr: int = 0x14,
         drv8830_left: int = 0x60,
         drv8830_right: int = 0x61,
+        registry: Optional[HardwareRegistry] = None,
     ) -> None:
         if SMBus is None:
             raise RuntimeError(
                 "SMBus library not available. Install 'smbus2' or run on Raspberry Pi."
             )
 
+        self.registry = registry or HardwareRegistry()
+        self._reserved_gpio: set[int] = set()
+        self._reserved_i2c: set[Tuple[int, int]] = set()
         self.bus = SMBus(bus_id)
 
         # LCD -----------------------------------------------------------------
+        lcd_registered = False
+        try:
+            self.registry.reserve_i2c(bus_id, LCD_ADDR, role="lcd_text", owner="Robot.display")
+            lcd_registered = True
+            self._reserved_i2c.add((bus_id, LCD_ADDR))
+        except RuntimeError as conflict:
+            raise RuntimeError(f"LCD configuration conflict: {conflict}") from conflict
+
         try:
             self.lcd = GroveRGBLCD(i2c=self.bus)
             self.lcd_present = True
@@ -279,11 +292,25 @@ class Robot:
             print(f"[warn] LCD init failed ({exc}); continuing without LCD", file=sys.stderr)
             self.lcd = None
             self.lcd_present = False
+            if lcd_registered:
+                self.registry.release_i2c(bus_id, LCD_ADDR)
+                self._reserved_i2c.discard((bus_id, LCD_ADDR))
 
         # Wrap the LCD in a light-weight system that can absorb missing hardware
         self.display = DisplaySystem(self.lcd)
 
         # Ultrasonic ----------------------------------------------------------
+        try:
+            self.registry.reserve_gpio(
+                sonar_pin,
+                role="ultrasonic_ranger",
+                protocol="GPIO",
+                owner="Robot.distance",
+            )
+            self._reserved_gpio.add(sonar_pin)
+        except RuntimeError as conflict:
+            raise RuntimeError(f"Ultrasonic sensor configuration conflict: {conflict}") from conflict
+
         try:
             self.sonar = GroveUltrasonicRanger(sonar_pin)
             self.sonar_present = True
@@ -291,6 +318,8 @@ class Robot:
             print(f"[warn] Ultrasonic init failed ({exc}); distance readings disabled", file=sys.stderr)
             self.sonar = None
             self.sonar_present = False
+            self.registry.release_gpio(sonar_pin)
+            self._reserved_gpio.discard(sonar_pin)
 
         self.distance_sensor = DistanceSensor(self.sonar)
 
@@ -300,10 +329,22 @@ class Robot:
             led_device = None
         else:
             try:
+                self.registry.reserve_gpio(
+                    led_pin,
+                    role="status_led",
+                    protocol="GPIO",
+                    owner="Robot.led",
+                )
+                self._reserved_gpio.add(led_pin)
+            except RuntimeError as conflict:
+                raise RuntimeError(f"LED configuration conflict: {conflict}") from conflict
+            try:
                 led_device = GroveLed(led_pin)
             except Exception as exc:
                 print(f"[warn] LED init failed ({exc}); continuing without LED", file=sys.stderr)
                 led_device = None
+                self.registry.release_gpio(led_pin)
+                self._reserved_gpio.discard(led_pin)
 
         self._led_device = led_device
         self.led = LedSystem(led_device)
@@ -312,14 +353,49 @@ class Robot:
         # Motors --------------------------------------------------------------
         motion: MotionSystem
         if driver == "tb6612":
+            reserved_tb6612 = False
+            try:
+                self.registry.reserve_i2c(
+                    bus_id,
+                    tb6612_addr,
+                    role="tb6612_motor_driver",
+                    owner="Robot.motion",
+                )
+                reserved_tb6612 = True
+                self._reserved_i2c.add((bus_id, tb6612_addr))
+            except RuntimeError as conflict:
+                raise RuntimeError(f"Motor driver configuration conflict: {conflict}") from conflict
             try:
                 controller = get_controller(bus=bus_id, address=tb6612_addr, i2c=self.bus, verbose=False)
                 motion = MotionSystem(controller=controller)
             except OSError as exc:
                 print(f"[warn] TB6612 controller unavailable ({exc}); motors disabled", file=sys.stderr)
                 motion = MotionSystem()
+                if reserved_tb6612:
+                    self.registry.release_i2c(bus_id, tb6612_addr)
+                    self._reserved_i2c.discard((bus_id, tb6612_addr))
         elif driver == "drv8830":
             left_drv = right_drv = None
+            reserved_left = reserved_right = False
+            try:
+                self.registry.reserve_i2c(
+                    bus_id,
+                    drv8830_left,
+                    role="drv8830_left_motor",
+                    owner="Robot.motion",
+                )
+                reserved_left = True
+                self._reserved_i2c.add((bus_id, drv8830_left))
+                self.registry.reserve_i2c(
+                    bus_id,
+                    drv8830_right,
+                    role="drv8830_right_motor",
+                    owner="Robot.motion",
+                )
+                reserved_right = True
+                self._reserved_i2c.add((bus_id, drv8830_right))
+            except RuntimeError as conflict:
+                raise RuntimeError(f"Motor driver configuration conflict: {conflict}") from conflict
             try:
                 left_drv = get_driver(bus=bus_id, address=drv8830_left, i2c=self.bus)
                 right_drv = get_driver(bus=bus_id, address=drv8830_right, i2c=self.bus)
@@ -331,6 +407,12 @@ class Robot:
                 if right_drv is not None:
                     right_drv.close()
                 motion = MotionSystem()
+                if reserved_left:
+                    self.registry.release_i2c(bus_id, drv8830_left)
+                    self._reserved_i2c.discard((bus_id, drv8830_left))
+                if reserved_right:
+                    self.registry.release_i2c(bus_id, drv8830_right)
+                    self._reserved_i2c.discard((bus_id, drv8830_right))
         else:
             raise ValueError(f"Unsupported driver '{driver}'")
 
@@ -378,7 +460,18 @@ class Robot:
                 try:
                     self.led.close()
                 finally:
-                    self.bus.close()
+                    try:
+                        self.bus.close()
+                    finally:
+                        self._release_registry_entries()
+
+    def _release_registry_entries(self) -> None:
+        for pin in list(self._reserved_gpio):
+            self.registry.release_gpio(pin)
+        self._reserved_gpio.clear()
+        for bus_id, address in list(self._reserved_i2c):
+            self.registry.release_i2c(bus_id, address)
+        self._reserved_i2c.clear()
 
 
 class ActionRunner:
@@ -506,6 +599,7 @@ def build_robot(
     tb6612_addr: int = 0x14,
     drv8830_left: int = 0x60,
     drv8830_right: int = 0x61,
+    registry: Optional[HardwareRegistry] = None,
 ) -> Robot:
     return Robot(
         driver=driver,
@@ -515,6 +609,7 @@ def build_robot(
         tb6612_addr=tb6612_addr,
         drv8830_left=drv8830_left,
         drv8830_right=drv8830_right,
+        registry=registry,
     )
 
 

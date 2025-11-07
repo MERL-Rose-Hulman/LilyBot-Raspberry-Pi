@@ -28,6 +28,9 @@ kit.motors.turn_right(inner_scale=0.3)
 value = kit.distance.read_and_display(kit.display)
 print("Current distance:", value)
 
+# Inspect current hardware allocations (GPIO/I2C)
+print(kit.hardware.snapshot())
+
 # Play back a scripted sequence (same format as the CLI)
 actions = [
     ("forward", [70, 1.2]),
@@ -51,6 +54,8 @@ kit.close()
   `read_and_display()` for easy integration with the display.
 - `kit.led`: Grove LED helper with `on()`, `off()`, and `blink()` for status cues
   or classroom exercises.
+- `kit.hardware`: central registry that records which GPIO pins and I2C addresses
+  are in use, helping you detect clashes when wiring additional devices.
 - `kit.run_actions(...)`: executes the same action tuples accepted by the
   command-line interface so classroom scripts or notebooks can replay CLI
   experiments verbatim.

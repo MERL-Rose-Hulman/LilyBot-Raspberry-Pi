@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+from .hardware_registry import HardwareRegistry, HardwareReservation
 from .robot import (
     DEFAULT_DURATION,
     DEFAULT_INNER_SCALE,
@@ -187,6 +188,27 @@ class DistanceComponent(KitComponent):
         return distance
 
 
+class HardwareRegistryComponent(KitComponent):
+    """Expose the shared hardware registry for classroom diagnostics."""
+
+    def __init__(self, registry: HardwareRegistry) -> None:
+        super().__init__("hardware")
+        self._registry = registry
+
+    @property
+    def available(self) -> bool:  # type: ignore[override]
+        return True
+
+    def gpio_usage(self) -> Dict[int, HardwareReservation]:
+        return self._registry.gpio_usage()
+
+    def i2c_usage(self) -> Dict[Tuple[int, int], HardwareReservation]:
+        return self._registry.i2c_usage()
+
+    def snapshot(self) -> Dict[str, Dict[str, Dict[str, str]]]:
+        return self._registry.snapshot()
+
+
 class LEDComponent(KitComponent):
     """Expose the Grove LED as a lesson-friendly helper."""
 
@@ -233,6 +255,7 @@ class LilyBotKit:
             raise ValueError("sonar_pin must be provided to initialise the kit")
 
         self.defaults = defaults or KitDefaults()
+        self.registry = HardwareRegistry()
         self.robot = build_robot(
             driver=driver,
             bus_id=bus_id,
@@ -241,6 +264,7 @@ class LilyBotKit:
             tb6612_addr=tb6612_addr,
             drv8830_left=drv8830_left,
             drv8830_right=drv8830_right,
+            registry=self.registry,
         )
 
         # Components are stored in a registry so lessons can iterate or extend them.
@@ -251,11 +275,13 @@ class LilyBotKit:
         self.display = DisplayComponent(self.robot)
         self.distance = DistanceComponent(self.robot)
         self.led = LEDComponent(self.robot)
+        self.hardware = HardwareRegistryComponent(self.registry)
 
         self.register_component("motors", self.motors)
         self.register_component("display", self.display)
         self.register_component("distance", self.distance)
         self.register_component("led", self.led)
+        self.register_component("hardware", self.hardware)
 
     # -------------------------------------------------------------------------
     def register_component(self, name: str, component: KitComponent) -> None:
@@ -322,5 +348,6 @@ __all__ = [
     "DisplayComponent",
     "DistanceComponent",
     "LEDComponent",
+    "HardwareRegistryComponent",
     "LilyBotKit",
 ]

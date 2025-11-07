@@ -174,6 +174,7 @@ def api_status():
             "display": kit.display.available,
             "distance": kit.distance.available,
             "led": kit.led.available if hasattr(kit, "led") else False,
+            "hardware": kit.hardware.snapshot() if hasattr(kit, "hardware") else {},
             "defaults": {
                 "speed": DEFAULTS.speed,
                 "duration": DEFAULTS.duration,

@@ -54,6 +54,28 @@ def demo_led(kit: LilyBotKit) -> None:
     led.blink(count=3, on_time=0.3, off_time=0.3)
 
 
+def show_hardware_overview(kit: LilyBotKit) -> None:
+    """Print a quick summary of reserved hardware resources."""
+    hardware = getattr(kit, "hardware", None)
+    if hardware is None:
+        return
+    print("Hardware assignments:")
+    gpio_usage = hardware.gpio_usage()
+    if gpio_usage:
+        for pin in sorted(gpio_usage):
+            record = gpio_usage[pin]
+            print(f"  GPIO {pin}: {record.role} ({record.owner}, {record.protocol})")
+    else:
+        print("  GPIO: none")
+    i2c_usage = hardware.i2c_usage()
+    if i2c_usage:
+        for (bus_id, address) in sorted(i2c_usage):
+            record = i2c_usage[(bus_id, address)]
+            print(f"  I2C bus {bus_id} addr 0x{address:02X}: {record.role} ({record.owner})")
+    else:
+        print("  I2C: none")
+
+
 def demo_motions(kit: LilyBotKit) -> None:
     """Demonstrate the basic motion primitives in a safe, sequential order."""
     motors = kit.motors
@@ -112,6 +134,7 @@ def main() -> None:
         drv8830_right=DRV8830_RIGHT,
         defaults=DEFAULTS,
     ) as kit:
+        show_hardware_overview(kit)
         show_header(kit)
         demo_led(kit)
 

@@ -14,6 +14,7 @@ new sensors or actuators.
 ┌───────────────┴─────────────────────────────────────────────────────┐
 │  Core Hardware Abstractions: lilybot/robot.py                       │
 │   • Robot manages the shared I2C bus                                │
+│   • HardwareRegistry coordinates GPIO/I2C allocations               │
 │   • MotionSystem / DisplaySystem / LedSystem / DistanceSensor       │
 │   • ActionRunner executes scripted motion sequences                  │
 └───────────────▲─────────────────────────────────────────────────────┘
@@ -35,7 +36,9 @@ new sensors or actuators.
    student-facing API remains stable.
 3. **Friendly fault handling** – when hardware is disconnected during
    development the code prints warnings instead of crashing the app.
-4. **Teaching-first API** – `LilyBotKit` emphasises readable, semantic method
+4. **Resource safety** – the `HardwareRegistry` stops accidental overlaps on GPIO
+   pins or I2C addresses by raising clear conflicts.
+5. **Teaching-first API** – `LilyBotKit` emphasises readable, semantic method
    names so beginners focus on robotics concepts rather than plumbing.
 
 ## Adding a New Device
@@ -98,8 +101,10 @@ example below assumes a temperature sensor):
 - **`ActionRunner`** – interprets action tuples and triggers the appropriate
   motor or sensor behaviour.
 - **`LilyBotKit`** – classroom wrapper that surfaces semantic components such as
-  `kit.motors`, `kit.display`, `kit.led`, and `kit.distance`, plus helpers like
+  `kit.motors`, `kit.display`, `kit.led`, `kit.distance`, and `kit.hardware`, plus helpers like
   `run_actions` and `run_prebuilt_demo`.
+- **`HardwareRegistry`** – shared book-keeping service that records which pins
+  and I2C addresses have been allocated, making clashes easy to diagnose.
 
 Keeping the stack ordered as Device → Robot → Kit allows us to provide a gentle
 API for students while still enabling rapid experimentation with new hardware

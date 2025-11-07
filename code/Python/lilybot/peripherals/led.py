@@ -30,6 +30,7 @@ class GroveLed:
             self._gpio = gpio
             self.pin = pin if pin is not None else getattr(self._gpio, "pin", None)
             self._owns_gpio = False
+        self._configure_output()
         self.off()
 
     def on(self) -> None:
@@ -60,6 +61,22 @@ class GroveLed:
                     self._gpio.close()
                 except Exception:
                     pass
+
+    def _configure_output(self) -> None:
+        """Ensure the GPIO is configured for output before driving the LED."""
+        direction = None
+        if GPIO is not None:
+            direction = getattr(GPIO, "OUT", None)
+        if direction is None:
+            direction = getattr(self._gpio, "OUT", None)
+        if direction is None or not hasattr(self._gpio, "dir"):
+            return
+        try:
+            self._gpio.dir(direction)
+        except Exception:
+            # If the library refuses to change the direction we leave it as-is;
+            # subsequent writes keep raising so callers can surface the failure.
+            pass
 
 
 __all__ = ["GroveLed"]
